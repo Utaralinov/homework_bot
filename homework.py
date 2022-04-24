@@ -6,6 +6,8 @@ import telegram
 import time
 from dotenv import load_dotenv
 
+from .exceptions import NoneException
+
 load_dotenv()
 
 
@@ -26,16 +28,14 @@ HOMEWORK_STATUSES = {
 }
 
 
-class NoneException(Exception):
-    pass
-
-
 def send_message(bot, message):
+    """Функция отвечающая за отрпавку сообщений в телеграм."""
     chat_id = TELEGRAM_CHAT_ID
     bot.send_message(chat_id, message)
 
 
 def get_api_answer(current_timestamp):
+    """Делает запрос к эндпоинту API-сервиса."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
     response = requests.get(ENDPOINT, headers=HEADERS, params=params)
@@ -43,12 +43,14 @@ def get_api_answer(current_timestamp):
 
 
 def check_response(response):
+    """Проверяет ответ API на корректность."""
     if 'homeworks' not in response.keys():
         raise NoneException('В response нет ключа homeworks')
     return response['homeworks']
 
 
 def parse_status(homework):
+    """Извлекает информацию о статусе домашней работы."""
     if 'homework_name' not in homework.keys():
         raise NoneException('В homework нет ключа homework_name')
     if 'status' not in homework.keys():
@@ -66,6 +68,7 @@ def parse_status(homework):
 
 
 def check_tokens():
+    """Проверяет доступность переменных окружения."""
     if (PRACTICUM_TOKEN is None) or (TELEGRAM_TOKEN is None) or \
             (TELEGRAM_CHAT_ID is None):
         return False
