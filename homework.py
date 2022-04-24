@@ -6,7 +6,7 @@ import telegram
 import time
 from dotenv import load_dotenv
 
-from .exceptions import NoneException
+from exceptions import NoneException
 
 load_dotenv()
 
