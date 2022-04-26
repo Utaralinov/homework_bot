@@ -5,8 +5,7 @@ import sys
 import telegram
 import time
 from dotenv import load_dotenv
-
-from exceptions import NoneException
+from http import HTTPStatus
 
 load_dotenv()
 
@@ -39,29 +38,32 @@ def get_api_answer(current_timestamp):
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
     response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+    if response.status_code != HTTPStatus.OK:
+        raise requests.HTTPError(response)
     return response.json()
 
 
 def check_response(response):
     """Проверяет ответ API на корректность."""
-    if 'homeworks' not in response.keys():
-        raise NoneException('В response нет ключа homeworks')
-    return response['homeworks']
+    if type(response) is not dict:
+        raise TypeError('Ответ получен не в виде словаря')
+    key = 'homeworks'
+    if key not in response.keys():
+        raise KeyError(f'В response нет ключа {key}')
+    if type(response[key]) is not list:
+        raise TypeError('Домашняя работа получена не в виде списка')
+    return response[key]
 
 
 def parse_status(homework):
     """Извлекает информацию о статусе домашней работы."""
-    if 'homework_name' not in homework.keys():
-        raise NoneException('В homework нет ключа homework_name')
-    if 'status' not in homework.keys():
-        raise NoneException('В homework нет ключа status')
 
     homework_name = homework['homework_name']
     homework_status = homework['status']
 
     if homework_status not in HOMEWORK_STATUSES.keys():
-        raise NoneException(('Недокументированный статус домашней '
-                             f'работы: {homework_status}'))
+        raise KeyError(('Недокументированный статус домашней '
+                        f'работы: {homework_status}'))
     verdict = HOMEWORK_STATUSES[homework_status]
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
