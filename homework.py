@@ -1,9 +1,12 @@
+import json
 import logging
 import os
-import requests
 import sys
-import telegram
 import time
+
+import requests
+import telegram
+
 from dotenv import load_dotenv
 from http import HTTPStatus
 
@@ -29,18 +32,27 @@ HOMEWORK_STATUSES = {
 
 def send_message(bot, message):
     """Функция отвечающая за отрпавку сообщений в телеграм."""
-    chat_id = TELEGRAM_CHAT_ID
-    bot.send_message(chat_id, message)
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+    except telegram.TelegramError as error:
+        raise telegram.TelegramError(('Ошибка отправки сообщения в телеграм: '
+                                      f'{error}'))
 
 
 def get_api_answer(current_timestamp):
     """Делает запрос к эндпоинту API-сервиса."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-    if response.status_code != HTTPStatus.OK:
-        raise requests.HTTPError(response)
-    return response.json()
+    try:
+        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+        if response.status_code != HTTPStatus.OK:
+            raise requests.HTTPError(response)
+        return response.json()
+    except requests.exceptions.RequestException as error:
+        raise Exception(f'Сбой при запросе к эндпойнту: {error}')
+    except json.decoder.JSONDecodeError as error:
+        raise Exception((f'Ответ {response.text} получен не в виде JSON: '
+                         f'{error}'))
 
 
 def check_response(response):
@@ -48,7 +60,7 @@ def check_response(response):
     if type(response) is not dict:
         raise TypeError('Ответ получен не в виде словаря')
     key = 'homeworks'
-    if key not in response.keys():
+    if key not in response:
         raise KeyError(f'В response нет ключа {key}')
     if type(response[key]) is not list:
         raise TypeError('Домашняя работа получена не в виде списка')
@@ -57,10 +69,13 @@ def check_response(response):
 
 def parse_status(homework):
     """Извлекает информацию о статусе домашней работы."""
-    homework_name = homework['homework_name']
-    homework_status = homework['status']
+    try:
+        homework_name = homework['homework_name']
+        homework_status = homework['status']
+    except KeyError as e:
+        raise KeyError(f'В словаре домашней работы нет ключа {e}')
 
-    if homework_status not in HOMEWORK_STATUSES.keys():
+    if homework_status not in HOMEWORK_STATUSES:
         raise KeyError(('Недокументированный статус домашней '
                         f'работы: {homework_status}'))
     verdict = HOMEWORK_STATUSES[homework_status]
@@ -70,8 +85,8 @@ def parse_status(homework):
 
 def check_tokens():
     """Проверяет доступность переменных окружения."""
-    if (PRACTICUM_TOKEN is None) or (TELEGRAM_TOKEN is None) or \
-            (TELEGRAM_CHAT_ID is None):
+    if (PRACTICUM_TOKEN is None or TELEGRAM_TOKEN is None
+            or TELEGRAM_CHAT_ID is None):
         return False
     else:
         return True
@@ -116,8 +131,10 @@ def main():
                 try:
                     send_message(bot, message)
                     last_error_message = message
-                except Exception:
-                    pass
+                except Exception as send_error:
+                    message = ('Сбой при отправке сообщения об ошибке: '
+                               f'{send_error}')
+                    logger.error(message)
             time.sleep(RETRY_TIME)
         else:
             logger.error('Сбой в работе программы')
