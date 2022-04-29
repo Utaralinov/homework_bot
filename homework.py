@@ -1,14 +1,15 @@
+from http import HTTPStatus
 import json
 import logging
 import os
 import sys
 import time
 
+from dotenv import load_dotenv
 import requests
 import telegram
 
-from dotenv import load_dotenv
-from http import HTTPStatus
+from exceptions import EndpointError, JSONError, SendMessageError
 
 load_dotenv()
 
@@ -35,8 +36,7 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
     except telegram.TelegramError as error:
-        raise telegram.TelegramError(('Ошибка отправки сообщения в телеграм: '
-                                      f'{error}'))
+        raise SendMessageError(error)
 
 
 def get_api_answer(current_timestamp):
@@ -49,10 +49,9 @@ def get_api_answer(current_timestamp):
             raise requests.HTTPError(response)
         return response.json()
     except requests.exceptions.RequestException as error:
-        raise Exception(f'Сбой при запросе к эндпойнту: {error}')
+        raise EndpointError(error)
     except json.decoder.JSONDecodeError as error:
-        raise Exception((f'Ответ {response.text} получен не в виде JSON: '
-                         f'{error}'))
+        raise JSONError(response.text, error)
 
 
 def check_response(response):
