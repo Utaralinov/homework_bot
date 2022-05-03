@@ -30,11 +30,20 @@ HOMEWORK_STATUSES = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 
 def send_message(bot, message):
     """Функция отвечающая за отрпавку сообщений в телеграм."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
+        logger.info(('Сообщение отправленно в телеграм: '
+                     f'{message}'))
     except telegram.TelegramError as error:
         raise SendMessageError(error)
 
@@ -93,13 +102,6 @@ def check_tokens():
 
 def main():
     """Основная логика работы бота."""
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
     if not check_tokens():
         logger.critical('Отсутствуют обязательные переменные окружения!')
         return
@@ -117,8 +119,6 @@ def main():
             for homework in homeworks:
                 message = parse_status(homework)
                 send_message(bot, message)
-                logger.info(('Сообщение отправленно в телеграм: '
-                             f'{message}'))
 
             current_timestamp = int(time.time())
             time.sleep(RETRY_TIME)
